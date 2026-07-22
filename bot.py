@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters, ContextTypes
-from config import BOT_TOKEN, CLASS_SCHEDULE, HOLIDAYS, USER_ID
+from config import BOT_TOKEN, CLASS_SCHEDULE, HOLIDAYS, USER_ID, SEMESTER_START, SEMESTER_END
 from database import AttendanceDB
 from attendance import AttendanceCalculator
 
@@ -30,13 +30,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     db.set_user_setting(user_id, 70)
     
-    welcome_text = """📚 **Welcome to Attendance Bot!**
+    # Format semester dates dynamically
+    sem_start = SEMESTER_START.strftime('%d %B %Y')
+    sem_end = SEMESTER_END.strftime('%d %B %Y')
+    
+    welcome_text = f"""📚 **Welcome to Attendance Bot!**
 
 GS PMP Polytechnic, Gandhinagar
 Semester 3, Computer Engineering
 
 🎯 **Target Attendance:** 70%
-📅 **Semester:** 13 July 2025 - 15 January 2026
+📅 **Semester:** {sem_start} - {sem_end}
 
 Choose an option below:"""
     
