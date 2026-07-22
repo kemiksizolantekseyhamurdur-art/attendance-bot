@@ -8,10 +8,19 @@ load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 USER_ID = int(os.getenv('USER_ID', 0))
 
-# Attendance Settings
-TARGET_ATTENDANCE = 70  # Default target attendance %
-SEMESTER_START = datetime(2025, 7, 13)  # 13/7/2025
-SEMESTER_END = datetime(2026, 1, 15)  # Around Dec-Jan
+# Attendance Settings - Auto-detect semester based on current date
+now = datetime.now()
+current_year = now.year
+
+# Semester logic: Usually July-Dec (odd) or Jan-May (even)
+if now.month >= 7:
+    SEMESTER_START = datetime(current_year, 7, 13)
+    SEMESTER_END = datetime(current_year + 1, 1, 15)
+else:
+    SEMESTER_START = datetime(current_year - 1, 7, 13)
+    SEMESTER_END = datetime(current_year, 1, 15)
+
+TARGET_ATTENDANCE = 70
 
 # Class Schedule (Monday=0, Friday=4)
 CLASS_SCHEDULE = {
@@ -57,8 +66,32 @@ CLASS_SCHEDULE = {
     ],
 }
 
-# Holidays 2025-26 (India + College specific)
+# Holidays 2024-2026 (India + College specific) - Updated dynamically
 HOLIDAYS = [
+    # 2024
+    {'date': '2024-08-15', 'name': 'Independence Day', 'type': 'national'},
+    {'date': '2024-09-16', 'name': 'Milad-un-Nabi', 'type': 'national'},
+    {'date': '2024-10-02', 'name': 'Gandhi Jayanti', 'type': 'national'},
+    {'date': '2024-10-12', 'name': 'Dussehra', 'type': 'national'},
+    {'date': '2024-10-31', 'name': 'Diwali', 'type': 'national'},
+    {'date': '2024-11-01', 'name': 'Diwali Break', 'type': 'college'},
+    {'date': '2024-11-11', 'name': 'Guru Nanak Jayanti', 'type': 'national'},
+    {'date': '2024-12-25', 'name': 'Christmas', 'type': 'national'},
+    {'date': '2024-12-26', 'name': 'Winter Break', 'type': 'college'},
+    {'date': '2024-12-27', 'name': 'Winter Break', 'type': 'college'},
+    {'date': '2024-12-28', 'name': 'Winter Break', 'type': 'college'},
+    {'date': '2024-12-29', 'name': 'Winter Break', 'type': 'college'},
+    {'date': '2024-12-30', 'name': 'Winter Break', 'type': 'college'},
+    {'date': '2024-12-31', 'name': 'Winter Break', 'type': 'college'},
+    
+    # January 2025
+    {'date': '2025-01-01', 'name': 'New Year', 'type': 'national'},
+    {'date': '2025-01-02', 'name': 'Winter Break', 'type': 'college'},
+    {'date': '2025-01-03', 'name': 'Winter Break', 'type': 'college'},
+    {'date': '2025-01-04', 'name': 'Winter Break', 'type': 'college'},
+    {'date': '2025-01-05', 'name': 'Winter Break', 'type': 'college'},
+    {'date': '2025-01-26', 'name': 'Republic Day', 'type': 'national'},
+    
     # July 2025
     {'date': '2025-07-26', 'name': 'Karmavir Bhaurao Patil Jayanti', 'type': 'national'},
     
@@ -72,21 +105,19 @@ HOLIDAYS = [
     
     # October 2025
     {'date': '2025-10-02', 'name': 'Gandhi Jayanti', 'type': 'national'},
-    {'date': '2025-10-12', 'name': 'Dussehra (Vijayadashami)', 'type': 'national'},
-    {'date': '2025-10-13', 'name': 'Dussehra (College Holiday)', 'type': 'college'},
+    {'date': '2025-10-12', 'name': 'Dussehra', 'type': 'national'},
+    {'date': '2025-10-13', 'name': 'Dussehra Break', 'type': 'college'},
     {'date': '2025-10-14', 'name': 'Dussehra Break', 'type': 'college'},
-    {'date': '2025-10-22', 'name': 'Diwali', 'type': 'national'},
-    {'date': '2025-10-23', 'name': 'Diwali (College Holiday)', 'type': 'college'},
-    {'date': '2025-10-24', 'name': 'Diwali Break', 'type': 'college'},
+    {'date': '2025-10-31', 'name': 'Diwali', 'type': 'national'},
+    {'date': '2025-11-01', 'name': 'Diwali Break', 'type': 'college'},
     
     # November 2025
-    {'date': '2025-11-01', 'name': 'Diwali Break', 'type': 'college'},
     {'date': '2025-11-11', 'name': 'Guru Nanak Jayanti', 'type': 'national'},
     {'date': '2025-11-25', 'name': 'Constitution Day', 'type': 'national'},
     
     # December 2025
     {'date': '2025-12-25', 'name': 'Christmas', 'type': 'national'},
-    {'date': '2025-12-26', 'name': 'Winter Break (College Holiday)', 'type': 'college'},
+    {'date': '2025-12-26', 'name': 'Winter Break', 'type': 'college'},
     {'date': '2025-12-27', 'name': 'Winter Break', 'type': 'college'},
     {'date': '2025-12-28', 'name': 'Winter Break', 'type': 'college'},
     {'date': '2025-12-29', 'name': 'Winter Break', 'type': 'college'},
@@ -99,8 +130,6 @@ HOLIDAYS = [
     {'date': '2026-01-03', 'name': 'Winter Break', 'type': 'college'},
     {'date': '2026-01-04', 'name': 'Winter Break', 'type': 'college'},
     {'date': '2026-01-05', 'name': 'Winter Break', 'type': 'college'},
-    {'date': '2026-01-06', 'name': 'Winter Break', 'type': 'college'},
-    {'date': '2026-01-07', 'name': 'Winter Break', 'type': 'college'},
     {'date': '2026-01-26', 'name': 'Republic Day', 'type': 'national'},
 ]
 
