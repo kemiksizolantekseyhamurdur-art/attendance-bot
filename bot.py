@@ -30,6 +30,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     db.set_user_setting(user_id, 70)
     
+    # Reset state
+    context.user_data['state'] = None
+    
     # Format semester dates dynamically
     sem_start = SEMESTER_START.strftime('%d %B %Y')
     sem_end = SEMESTER_END.strftime('%d %B %Y')
@@ -112,8 +115,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == 'predict':
         await show_predict(query, user_id)
     elif query.data == 'add_date':
-        await query.edit_message_text("📅 Enter date (YYYY-MM-DD format):\ne.g., 2025-07-22")
-        return ADD_DATE
+        context.user_data['state'] = ADD_DATE  # Set state properly
+        await query.edit_message_text("📅 Enter date (YYYY-MM-DD format):\ne.g., 2026-07-22")
     elif query.data == 'history':
         await show_history(query, user_id)
     elif query.data == 'holidays':
@@ -122,12 +125,15 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_settings(query, user_id)
     elif query.data == 'help':
         await help_command(update, context)
+    elif query.data.startswith('past_'):
+        parts = query.data.split('_')
+        status = parts[1]
+        date_str = '_'.join(parts[2:])
+        await mark_past_attendance(query, user_id, status, date_str)
+        context.user_data['state'] = None  # Reset state
     elif query.data.startswith('status_'):
         status = query.data.split('_')[1]
         await mark_attendance(query, user_id, status)
-    elif query.data.startswith('holiday_override_'):
-        await query.edit_message_text("Mark as holiday override? Confirm: YES or NO")
-        return CONFIRM_DELETE
 
 async def mark_today(query, user_id):
     """Mark attendance for today"""
@@ -147,7 +153,6 @@ async def mark_today(query, user_id):
             [InlineKeyboardButton("✅ Present", callback_data='status_present')],
             [InlineKeyboardButton("❌ Absent", callback_data='status_absent')],
             [InlineKeyboardButton("🚑 Leave", callback_data='status_leave')],
-            [InlineKeyboardButton("🏖️ Holiday Override", callback_data='holiday_override_yes')],
         ]
         await query.edit_message_text(
             f"⚠️ **{holiday_name}** is a holiday!\n\nStill want to mark attendance?",
@@ -175,7 +180,7 @@ Mark your attendance:"""
     await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
 async def mark_attendance(query, user_id, status):
-    """Save attendance status"""
+    """Save attendance status for today"""
     today = datetime.now().date()
     today_str = today.strftime('%Y-%m-%d')
     classes = calc.get_classes_for_date(today)
@@ -193,6 +198,32 @@ async def mark_attendance(query, user_id, status):
     text = f"""{emoji} **{status_text}** marked for today!
 
 📊 **Current Stats:**
+- Attended: {attended} classes
+- Total: {total} classes
+- Attendance: {percentage}%
+- Can bunk: {max_bunk} classes safely
+
+🎯 Target: 70%
+"""
+    
+    await query.edit_message_text(text, parse_mode='Markdown')
+
+async def mark_past_attendance(query, user_id, status, date_str):
+    """Save attendance status for past date"""
+    classes_count = 6  # Default 6 classes per day
+    
+    db.add_attendance(user_id, date_str, status, classes_count)
+    
+    emoji = {'present': '✅', 'absent': '❌', 'leave': '🚑'}[status]
+    status_text = {'present': 'Present', 'absent': 'Absent', 'leave': 'Leave'}[status]
+    
+    # Calculate current stats
+    percentage, attended, total = calc.calculate_attendance_percentage(user_id)
+    max_bunk = calc.calculate_max_bunk(user_id, 70)
+    
+    text = f"""{emoji} **{status_text}** marked for {date_str}!
+
+📊 **Updated Stats:**
 - Attended: {attended} classes
 - Total: {total} classes
 - Attendance: {percentage}%
@@ -336,10 +367,13 @@ Options:
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle text messages"""
     user_id = update.effective_user.id
-    text = update.message.text
+    text = update.message.text.strip()
     
-    # Check if it's a date (ADD_DATE state)
-    if len(context.user_data.get('state', [])) > 0 and context.user_data['state'][-1] == ADD_DATE:
+    # Check current state
+    current_state = context.user_data.get('state')
+    
+    # Check if in ADD_DATE state
+    if current_state == ADD_DATE:
         try:
             date_obj = datetime.strptime(text, '%Y-%m-%d').date()
             date_str = date_obj.strftime('%Y-%m-%d')
@@ -361,7 +395,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     [InlineKeyboardButton("✅ Present", callback_data=f'past_present_{date_str}')],
                     [InlineKeyboardButton("❌ Absent", callback_data=f'past_absent_{date_str}')],
                     [InlineKeyboardButton("🚑 Leave", callback_data=f'past_leave_{date_str}')],
-                    [InlineKeyboardButton("Skip", callback_data='start')],
+                    [InlineKeyboardButton("Skip", callback_data='back_menu')],
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 await update.message.reply_text(
@@ -391,24 +425,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Mark attendance:"""
             
             await update.message.reply_text(text_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
-            context.user_data['state'].pop()
+            context.user_data['state'] = None  # Reset state
             
         except ValueError:
-            await update.message.reply_text("❌ Invalid date format! Use YYYY-MM-DD (e.g., 2025-07-22)")
+            await update.message.reply_text("❌ Invalid date format! Use YYYY-MM-DD (e.g., 2026-07-22)")
             return
     
     # Check if it's a target percentage
-    try:
-        target = int(text)
-        if 0 < target <= 100:
-            db.set_user_setting(user_id, target)
-            await update.message.reply_text(f"✅ Target updated to {target}%!")
-            context.user_data['state'].pop() if context.user_data.get('state') else None
-            return
-    except ValueError:
-        pass
+    elif current_state is None:
+        try:
+            target = int(text)
+            if 0 < target <= 100:
+                db.set_user_setting(user_id, target)
+                await update.message.reply_text(f"✅ Target updated to {target}%!")
+                return
+        except ValueError:
+            pass
     
-    await update.message.reply_text("❌ Invalid input. Please try again.")
+    # Default: show invalid input
+    await update.message.reply_text("❌ Invalid input. Please try again or use /start to return to menu.")
 
 # ============ MAIN ============
 
