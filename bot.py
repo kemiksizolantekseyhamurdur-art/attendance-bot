@@ -245,7 +245,7 @@ async def show_predict(query, user_id):
     bunk_60, classes_60 = calc.predict_future_attendance(user_id, 60, 70)
     bunk_90, classes_90 = calc.predict_future_attendance(user_id, 90, 70)
     
-    text = f"""{} **BUNKING PREDICTIONS**
+    text = f"""📊 **BUNKING PREDICTIONS**
 
 📊 **Current:** {percentage}% ({attended}/{total} classes)
 
