@@ -45,6 +45,50 @@ class AttendanceCalculator:
         percentage = (stats['present'] / total) * 100
         return round(percentage, 2), stats['present'], total
     
+    def get_monthly_attendance(self, user_id):
+        """Get attendance statistics for each month"""
+        monthly_stats = {}
+        today = datetime.now().date()
+        
+        # Get all attendance records for this user
+        conn = self.db.db_path
+        import sqlite3
+        conn = sqlite3.connect(self.db.db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT date, status FROM attendance WHERE user_id=? ORDER BY date', (user_id,))
+        records = cursor.fetchall()
+        conn.close()
+        
+        for date_str, status in records:
+            # Parse date and get year-month
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            month_key = date_obj.strftime('%B %Y')  # e.g., "July 2026"
+            year_month = date_obj.strftime('%Y-%m')  # e.g., "2026-07"
+            
+            if year_month not in monthly_stats:
+                monthly_stats[year_month] = {'present': 0, 'absent': 0, 'leave': 0, 'display': month_key}
+            
+            # Count present as attended, absent and leave as not attended
+            if status == 'present':
+                monthly_stats[year_month]['present'] += 1
+            elif status == 'absent':
+                monthly_stats[year_month]['absent'] += 1
+            elif status == 'leave':
+                monthly_stats[year_month]['leave'] += 1
+        
+        return monthly_stats
+    
+    def get_current_month_attendance(self, user_id):
+        """Get current month's attendance percentage"""
+        today = datetime.now().date()
+        first_day = today.replace(day=1)
+        last_day = (first_day + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        
+        from_date = first_day.strftime('%Y-%m-%d')
+        to_date = last_day.strftime('%Y-%m-%d')
+        
+        return self.calculate_attendance_percentage(user_id, from_date, to_date)
+    
     def calculate_max_bunk(self, user_id, target_attendance=70):
         """Calculate how many classes can be bunked safely"""
         stats = self.db.get_attendance_stats(user_id)
